@@ -1,4 +1,4 @@
-# Blockchain
+# Blockchain 🧱⛓
 
 This is an implementation of a proof of work blockchain.
 This project is more of an exploration of the idea for me, I didn't consult any material prior to starting it, and it is probably closest to a simple bitcoin type blockchain.
