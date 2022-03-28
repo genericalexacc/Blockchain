@@ -11,11 +11,12 @@ import (
 )
 
 type GossipProtocol struct {
-	list       *memberlist.Memberlist
-	config     *memberlist.Config
-	blockchain *Blockchain
-	myAddress  int
-	shareNum   int
+	list          *memberlist.Memberlist
+	config        *memberlist.Config
+	blockchain    *Blockchain
+	myAddress     int
+	shareNumPeers int
+	maxHops       int
 }
 
 var networkShareRequests = make(map[int]bool)
@@ -44,6 +45,7 @@ func (g *GossipProtocol) SetupGossip(bootstrapUrl string) {
 type WorkPacket struct {
 	Data  []byte `json:"data"`
 	Block int    `json:"block"`
+	Hops  int    `json:"hops"`
 }
 
 func (g *GossipProtocol) handleGossipedBlock(bodyAsBytes []byte) error {
@@ -61,21 +63,34 @@ func (g *GossipProtocol) handleGossipedBlock(bodyAsBytes []byte) error {
 		return err
 	}
 
-	go g.CascadeShare(bodyAsBytes, &wp)
+	go g.CascadeShare(&wp)
 
 	return nil
 }
 
-func (g *GossipProtocol) CascadeShare(serializedData []byte, data *WorkPacket) {
+func (g *GossipProtocol) CascadeShare(data *WorkPacket) {
 	log.Println("Cascading share", data.Block)
 	if networkShareRequests[data.Block] {
 		log.Println("Already requested", data.Block)
 		return
 	}
 
+	if data.Hops >= g.maxHops {
+		log.Println("Max hops reached", data.Block)
+		return
+	}
+
+	data.Hops += 1
+
 	members := g.list.Members()
 
-	for i := 0; i < g.shareNum; i++ {
+	serializedData, err := json.Marshal(data)
+	if err != nil {
+		log.Println("Failed to marshal data: " + err.Error())
+		return
+	}
+
+	for i := 0; i < g.shareNumPeers; i++ {
 		a := rand.Intn(len(members))
 
 		log.Println("Sending to " + members[a].Name)

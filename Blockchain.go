@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -52,19 +51,14 @@ func (b *Blockchain) Work() {
 			continue
 		}
 		b.computeHash(current.Next, current.ParentHash)
+		fmt.Println("Found new block")
 
 		wp := WorkPacket{
 			Data:  current.Next.ParentHash,
 			Block: current.Next.NodeIndex,
 		}
 
-		marsalledPacket, err := json.Marshal(wp)
-		if err != nil {
-			panic(err)
-		}
-
-		fmt.Println("Found new block")
-		b.gossipProtocol.CascadeShare(marsalledPacket, &wp)
+		b.gossipProtocol.CascadeShare(&wp)
 		current = current.Next
 	}
 }
