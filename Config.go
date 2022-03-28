@@ -1,9 +1,6 @@
 package main
 
 type Config struct {
-	Port int `json:"port"`
-}
-
-var globalConfig Config = Config{
-	Port: 8080,
+	Port     int `json:"port"`
+	HttpPort int `json:"http_port"`
 }

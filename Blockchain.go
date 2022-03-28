@@ -2,8 +2,10 @@ package main
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"math/rand"
 	"strings"
 )
@@ -13,6 +15,7 @@ type Blockchain struct {
 	lastBlock      *Node
 	difficulty     int
 	gossipProtocol *GossipProtocol
+	serverConfig   Config
 }
 
 func (b *Blockchain) PrintAll() {
@@ -44,7 +47,7 @@ func (b *Blockchain) AddBlock(block *Node) {
 }
 
 func (b *Blockchain) Work() {
-	current := b.start
+	current := b.start.Next
 	for current.Next != nil {
 		if current.Next.ParentHash != nil {
 			current = current.Next
@@ -56,9 +59,18 @@ func (b *Blockchain) Work() {
 		wp := WorkPacket{
 			Data:  current.Next.ParentHash,
 			Block: current.Next.NodeIndex,
+			Hops:  0,
 		}
 
-		b.gossipProtocol.CascadeShare(&wp)
+		out, err := json.Marshal(wp)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		b.gossipProtocol.broadcasts.QueueBroadcast(&broadcast{
+			msg:    append([]byte("d"), out...),
+			notify: nil,
+		})
 		current = current.Next
 	}
 }
@@ -89,11 +101,14 @@ func (b *Blockchain) AddHash(data []byte, blockIndex int) error {
 	for current != nil {
 		if current.NodeIndex == blockIndex {
 			hashable := []byte{}
+
+			current.Print()
 			hashable = append(hashable, current.Val[:]...)
 			hashable = append(hashable, current.Previous.ParentHash...)
 			hashable = append(hashable, current.ParentHash...)
 
 			if hex.EncodeToString(getHash(hashable))[:b.difficulty] != strings.Repeat("0", b.difficulty) {
+				log.Println("Hash is not valid")
 				return errors.New("Hash is not valid")
 			}
 

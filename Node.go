@@ -1,5 +1,10 @@
 package main
 
+import (
+	"encoding/hex"
+	"fmt"
+)
+
 type Node struct {
 	NodeIndex  int
 	Val        [1024]byte
@@ -17,4 +22,12 @@ func CreateNodeFromText(data string) *Node {
 		Previous:   nil,
 		ParentHash: nil,
 	}
+}
+
+func (n *Node) Print() {
+	fmt.Println("TRANSACTION")
+	fmt.Println("Message: " + string(n.Val[:]))
+	fmt.Println("Hash: " + hex.EncodeToString([]byte(n.ParentHash)))
+	fmt.Println("Previous:", n == nil)
+	fmt.Println("Next:", &n.Next)
 }

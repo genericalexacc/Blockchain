@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"strconv"
 	"testing"
 	"time"
 )
@@ -10,47 +9,67 @@ import (
 func startOtherNode() {
 	go func() {
 		genesisNode := CreateNodeFromText("GENESIS TRANSACTION.")
-		gp2 := GossipProtocol{myAddress: 8081}
-		gp2.SetupGossip("0.0.0.0:" + strconv.Itoa(globalConfig.Port))
+		gp := GossipProtocol{
+			myAddress:     4443,
+			maxHops:       2,
+			shareNumPeers: 2,
+		}
 
-		blockChainB := Blockchain{
+		blockChain := Blockchain{
 			start:          genesisNode,
 			lastBlock:      genesisNode,
 			difficulty:     2,
-			gossipProtocol: &gp2,
+			gossipProtocol: &gp,
+			serverConfig: Config{
+				Port:     8081,
+				HttpPort: 4443,
+			},
 		}
+		gp.blockchain = &blockChain
+		gp.SetupGossip("0.0.0.0:8080")
 
-		blockChainB.AddBlock(CreateNodeFromText("Send 0.1 BTC to Alice from Bob"))
-		blockChainB.AddBlock(CreateNodeFromText("Send 0.1 BTC to Charles for Alice"))
+		blockChain.AddBlock(CreateNodeFromText("Send 0.1 BTC to Alice from Bob"))
+		blockChain.AddBlock(CreateNodeFromText("Send 0.1 BTC to Charles from Alice"))
+		fmt.Println(gp.list.Join([]string{"0.0.0.0:8080"}))
 
-		gp2.ListenForRequests()
+		go func() {
+			time.Sleep(time.Second * 10)
+			blockChain.PrintAll()
+		}()
+
+		gp.ListenForRequests()
 
 		<-make(chan bool)
 	}()
 }
 
 func TestGossip(t *testing.T) {
-	genesisNode := CreateNodeFromText("GENESIS TRANSACTION.")
-
 	gp := GossipProtocol{
-		myAddress: globalConfig.Port,
+		myAddress:     4444,
+		maxHops:       2,
+		shareNumPeers: 2,
 	}
-	gp.SetupGossip("0.0.0.0:8081")
+
+	genesisNode := CreateNodeFromText("GENESIS TRANSACTION.")
 
 	blockChain := Blockchain{
 		start:          genesisNode,
 		lastBlock:      genesisNode,
 		difficulty:     2,
 		gossipProtocol: &gp,
+		serverConfig: Config{
+			Port:     8080,
+			HttpPort: 4444,
+		},
 	}
 
+	gp.blockchain = &blockChain
+	gp.SetupGossip()
 	go startOtherNode()
-
-	fmt.Println(gp.list.Join([]string{"0.0.0.0:8080"}))
 	go gp.ListenForRequests()
 
 	blockChain.AddBlock(CreateNodeFromText("Send 0.1 BTC to Alice from Bob"))
-	blockChain.AddBlock(CreateNodeFromText("Send 0.1 BTC to Charles for Alice"))
+	blockChain.AddBlock(CreateNodeFromText("Send 0.1 BTC to Charles from Alice"))
 	time.Sleep(time.Second * 3)
 	blockChain.Work()
 
