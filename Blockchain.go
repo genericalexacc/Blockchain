@@ -2,14 +2,18 @@ package main
 
 import (
 	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"math/rand"
 	"strings"
 )
 
 type Blockchain struct {
-	start      *Node
-	lastBlock  *Node
-	difficulty int
+	start          *Node
+	lastBlock      *Node
+	difficulty     int
+	gossipProtocol *GossipProtocol
 }
 
 func (b *Blockchain) PrintAll() {
@@ -25,8 +29,9 @@ func (b *Blockchain) PrintAll() {
 
 func (b *Blockchain) AddBlockFromString(data [1024]byte) {
 	newBlock := &Node{
-		Val:  data,
-		Next: nil,
+		Val:      data,
+		Next:     nil,
+		Previous: b.lastBlock,
 	}
 
 	b.lastBlock.Next = newBlock
@@ -34,6 +39,7 @@ func (b *Blockchain) AddBlockFromString(data [1024]byte) {
 }
 
 func (b *Blockchain) AddBlock(block *Node) {
+	block.Previous = b.lastBlock
 	b.lastBlock.Next = block
 	b.lastBlock = block
 }
@@ -46,6 +52,19 @@ func (b *Blockchain) Work() {
 			continue
 		}
 		b.computeHash(current.Next, current.ParentHash)
+
+		wp := WorkPacket{
+			Data:  current.Next.ParentHash,
+			Block: current.Next.NodeIndex,
+		}
+
+		marsalledPacket, err := json.Marshal(wp)
+		if err != nil {
+			panic(err)
+		}
+
+		fmt.Println("Found new block")
+		b.gossipProtocol.CascadeShare(marsalledPacket, &wp)
 		current = current.Next
 	}
 }
@@ -59,7 +78,7 @@ func (b *Blockchain) computeHash(n *Node, parentHash []byte) {
 	copy(currentHashable, initHashable[:])
 
 	for {
-		newRandomBytes := make([]byte, 1024)
+		newRandomBytes := make([]byte, 32)
 		rand.Read(newRandomBytes)
 		currentHashable = append(initHashable, newRandomBytes...)
 
@@ -69,4 +88,26 @@ func (b *Blockchain) computeHash(n *Node, parentHash []byte) {
 			break
 		}
 	}
+}
+
+func (b *Blockchain) AddHash(data []byte, blockIndex int) error {
+	current := b.start
+	for current != nil {
+		if current.NodeIndex == blockIndex {
+			hashable := []byte{}
+			hashable = append(hashable, current.Val[:]...)
+			hashable = append(hashable, current.Previous.ParentHash...)
+			hashable = append(hashable, current.ParentHash...)
+
+			if hex.EncodeToString(getHash(hashable))[:b.difficulty] != strings.Repeat("0", b.difficulty) {
+				return errors.New("Hash is not valid")
+			}
+
+			current.ParentHash = data
+		}
+		current = current.Next
+		return nil
+	}
+
+	return errors.New("Block not found")
 }

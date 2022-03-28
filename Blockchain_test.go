@@ -2,21 +2,26 @@ package main
 
 import (
 	"encoding/hex"
+	"fmt"
 	"math/rand"
 	"strings"
 	"testing"
+	"time"
 )
 
-const TestingDifficulty = 5
+const TestingDifficulty = 3
 
-func TestWork(t *testing.T) {
+func testWork(t *testing.T) {
 	genesisNode := CreateNodeFromText("GENESIS TRANSACTION.")
 	genesisNode.ParentHash = getHash([]byte("GENESIS"))
 
+	gp := GossipProtocol{myAddress: 8080}
+
 	blockChain := Blockchain{
-		start:      genesisNode,
-		lastBlock:  genesisNode,
-		difficulty: TestingDifficulty,
+		start:          genesisNode,
+		lastBlock:      genesisNode,
+		difficulty:     TestingDifficulty,
+		gossipProtocol: &gp,
 	}
 
 	for i := 0; i < 10; i++ {
@@ -26,7 +31,9 @@ func TestWork(t *testing.T) {
 		blockChain.AddBlock(CreateNodeFromText(randomText))
 	}
 
+	a := time.Now()
 	blockChain.Work()
+	fmt.Println(time.Since(a).Milliseconds())
 
 	currentBlock := blockChain.start
 
