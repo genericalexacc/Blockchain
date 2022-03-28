@@ -8,7 +8,7 @@ There is a work function that goes through the whole blockchain block by block a
 
 Sharing of blocks is done by keeping a list of peers with [memberlist](https://github.com/hashicorp/memberlist).
 
-Then using [controlled flooding](https://en.wikipedia.org/wiki/Flooding_(computer_networking)) we share work with all nodes.
+ We share work with all nodes using [controlled flooding](https://en.wikipedia.org/wiki/Flooding_(computer_networking)) with a hop counter.
 
 
 <img width="1019" alt="image" src="https://user-images.githubusercontent.com/23063635/159838461-e1185cd6-9723-4c65-a8f7-280b369671ef.png">
