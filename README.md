@@ -13,4 +13,4 @@ When a new hash has been found for a block it is also broacasted as a differing 
 <img width="508" alt="image" src="https://user-images.githubusercontent.com/23063635/160709062-2938ae18-058e-4615-a75d-959d3618d6c7.png">
 
 ### Gossip
-![image](https://user-images.githubusercontent.com/23063635/160708409-9aa0d529-afae-4bb4-8d45-ae7e7f6adc39.png)
+<img width="618" alt="image" src="https://user-images.githubusercontent.com/23063635/160709284-ad438f94-261f-4d5b-9d35-06a0d46b661b.png">
