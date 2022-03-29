@@ -13,7 +13,7 @@ type broadcast struct {
 }
 
 type delegate struct {
-	gossip *GossipProtocol
+	blockchain *Blockchain
 }
 
 func init() {
@@ -38,37 +38,55 @@ func (d *delegate) NodeMeta(limit int) []byte {
 }
 
 func (d *delegate) NotifyMsg(b []byte) {
+	fmt.Println("Received message: ", string(b))
 	if len(b) == 0 {
 		return
 	}
 
-	g := d.gossip
+	g := d.blockchain
 
 	switch b[0] {
 	case 'd':
 		var update *WorkPacket
 		fmt.Println("Received a data packet")
 		if err := json.Unmarshal(b[1:], &update); err != nil {
+			fmt.Println(err)
 			return
 		}
 
 		g.mtx.Lock()
-		g.blockchain.AddHash(update.Data, update.Block)
+		g.AddHash(update.Node)
 		g.mtx.Unlock()
+		break
+	case 'a':
+		var update *WorkPacket
+		fmt.Println("Received an addition data packet")
+		if err := json.Unmarshal(b[1:], &update); err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		g.mtx.Lock()
+		g.AddBlock(&update.Node, false)
+		g.mtx.Unlock()
+		break
 	}
 }
 
 func (d *delegate) GetBroadcasts(overhead, limit int) [][]byte {
-	g := d.gossip
-	return g.broadcasts.GetBroadcasts(overhead, limit)
+	return d.blockchain.gossipProtocol.broadcasts.GetBroadcasts(overhead, limit)
 }
 
 func (d *delegate) LocalState(join bool) []byte {
-	g := d.gossip
-	g.mtx.RLock()
-	m := g.blockchain
-	g.mtx.RUnlock()
-	b, _ := json.Marshal(m)
+	g := d.blockchain.gossipProtocol
+	d.blockchain.mtx.RLock()
+	m := g.blockchain.Pack()
+	d.blockchain.mtx.RUnlock()
+	b, err := json.Marshal(m)
+	if err != nil {
+		fmt.Println("Error marshalling", err)
+		return nil
+	}
 	return b
 }
 
@@ -76,19 +94,28 @@ func (d *delegate) MergeRemoteState(buf []byte, join bool) {
 	if len(buf) == 0 {
 		return
 	}
-	if !join {
-		return
-	}
-	g := d.gossip
+
 	var m []Node
 	if err := json.Unmarshal(buf, &m); err != nil {
 		return
 	}
-	g.mtx.Lock()
-	for _, v := range m {
-		g.blockchain.AddBlock(&v)
+
+	d.blockchain.mtx.Lock()
+	defer d.blockchain.mtx.Unlock()
+
+	fmt.Println("Merging remote state", len(m))
+	for _, v := range m[1:] {
+		fmt.Println("Adding node: ", v.NodeIndex, string(v.Val[:]))
+
+		if d.blockchain.GetBlockById(v.NodeIndex) != nil {
+			go d.blockchain.AddHash(v)
+			continue
+		}
+
+		if v.NodeIndex > d.blockchain.length-2 {
+			d.blockchain.AddBlock(&v, false)
+		}
 	}
-	g.mtx.Unlock()
 }
 
 type eventDelegate struct{}

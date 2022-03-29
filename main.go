@@ -21,8 +21,8 @@ func main() {
 		difficulty: 2,
 	}
 
-	blockChain.AddBlock(CreateNodeFromText("Send 0.1 BTC to Alice from Bob"))
-	blockChain.AddBlock(CreateNodeFromText("Send 0.1 BTC to Charles for Alice"))
+	blockChain.AddBlock(CreateNodeFromText("Send 0.1 BTC to Alice from Bob"), true)
+	blockChain.AddBlock(CreateNodeFromText("Send 0.1 BTC to Charles for Alice"), true)
 
 	a := time.Now()
 	blockChain.Work()

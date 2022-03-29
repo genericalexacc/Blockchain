@@ -8,6 +8,7 @@ import (
 	"log"
 	"math/rand"
 	"strings"
+	"sync"
 )
 
 type Blockchain struct {
@@ -16,6 +17,8 @@ type Blockchain struct {
 	difficulty     int
 	gossipProtocol *GossipProtocol
 	serverConfig   Config
+	length         int
+	mtx            sync.RWMutex
 }
 
 func (b *Blockchain) PrintAll() {
@@ -36,30 +39,66 @@ func (b *Blockchain) AddBlockFromString(data [1024]byte) {
 		Previous: b.lastBlock,
 	}
 
+	b.length++
 	b.lastBlock.Next = newBlock
 	b.lastBlock = newBlock
 }
 
-func (b *Blockchain) AddBlock(block *Node) {
+func (b *Blockchain) GetBlockById(id int) *Node {
+	n := b.start
+	for n != nil {
+		if n.NodeIndex == id {
+			return n
+		}
+		n = n.Next
+	}
+	return nil
+}
+
+func (b *Blockchain) AddBlock(block *Node, shouldBroadcast bool) {
+	b.length++
+	block.NodeIndex = b.lastBlock.NodeIndex + 1
 	block.Previous = b.lastBlock
 	b.lastBlock.Next = block
 	b.lastBlock = block
+
+	nodeCopy := *block
+	nodeCopy.Next = nil
+	nodeCopy.Previous = nil
+
+	wp := WorkPacket{
+		Node: nodeCopy,
+		Hops: 0,
+	}
+
+	out, err := json.Marshal(wp)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if shouldBroadcast {
+		fmt.Println("Broadcasting new block")
+		b.gossipProtocol.broadcasts.QueueBroadcast(&broadcast{
+			msg:    append([]byte("a"), out...),
+			notify: nil,
+		})
+	}
 }
 
 func (b *Blockchain) Work() {
-	current := b.start.Next
+	current := b.start
 	for current.Next != nil {
-		if current.Next.ParentHash != nil {
-			current = current.Next
-			continue
-		}
 		b.computeHash(current.Next, current.ParentHash)
 		fmt.Println("Found new block")
+		fmt.Println(string(current.Next.Val[:]))
+
+		nodeCopy := *current.Next
+		nodeCopy.Next = nil
+		nodeCopy.Previous = nil
 
 		wp := WorkPacket{
-			Data:  current.Next.ParentHash,
-			Block: current.Next.NodeIndex,
-			Hops:  0,
+			Node: nodeCopy,
+			Hops: 0,
 		}
 
 		out, err := json.Marshal(wp)
@@ -67,10 +106,12 @@ func (b *Blockchain) Work() {
 			log.Fatal(err)
 		}
 
+		log.Println("Sending to all peers")
 		b.gossipProtocol.broadcasts.QueueBroadcast(&broadcast{
 			msg:    append([]byte("d"), out...),
 			notify: nil,
 		})
+
 		current = current.Next
 	}
 }
@@ -96,13 +137,11 @@ func (b *Blockchain) computeHash(n *Node, parentHash []byte) {
 	}
 }
 
-func (b *Blockchain) AddHash(data []byte, blockIndex int) error {
+func (b *Blockchain) AddHash(node Node) error {
 	current := b.start
 	for current != nil {
-		if current.NodeIndex == blockIndex {
+		if current.NodeIndex == node.NodeIndex {
 			hashable := []byte{}
-
-			current.Print()
 			hashable = append(hashable, current.Val[:]...)
 			hashable = append(hashable, current.Previous.ParentHash...)
 			hashable = append(hashable, current.ParentHash...)
@@ -112,11 +151,21 @@ func (b *Blockchain) AddHash(data []byte, blockIndex int) error {
 				return errors.New("Hash is not valid")
 			}
 
-			current.ParentHash = data
+			current.ParentHash = node.ParentHash
 		}
 		current = current.Next
 		return nil
 	}
 
 	return errors.New("Block not found")
+}
+
+func (b *Blockchain) Pack() []Node {
+	n := b.start
+	var nodes []Node
+	for n != nil {
+		nodes = append(nodes, *n)
+		n = n.Next
+	}
+	return nodes
 }

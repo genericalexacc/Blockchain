@@ -15,20 +15,18 @@ func testWork(t *testing.T) {
 	genesisNode := CreateNodeFromText("GENESIS TRANSACTION.")
 	genesisNode.ParentHash = getHash([]byte("GENESIS"))
 
-	gp := GossipProtocol{myAddress: 8080}
-
 	blockChain := Blockchain{
 		start:          genesisNode,
 		lastBlock:      genesisNode,
 		difficulty:     TestingDifficulty,
-		gossipProtocol: &gp,
+		gossipProtocol: &GossipProtocol{},
 	}
 
 	for i := 0; i < 10; i++ {
 		newRandomBytes := make([]byte, 128)
 		rand.Read(newRandomBytes)
 		randomText := string(newRandomBytes)
-		blockChain.AddBlock(CreateNodeFromText(randomText))
+		blockChain.AddBlock(CreateNodeFromText(randomText), true)
 	}
 
 	a := time.Now()
