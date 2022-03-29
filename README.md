@@ -1,10 +1,9 @@
 # Blockchain
 
-This is an implementation of a proof of work blockchain.
-This project is more of an exploration of the idea for me, I didn't consult any material prior to starting it, and it is probably closest to a simple bitcoin type blockchain.
+This is an implementation of a toy proof of work blockchain.
 
-Every block has a payload and a hash. The hash must have N zeros prepended where N is the current blockchain difficulty.
-There is a work function that goes through the whole blockchain block by block and calculates the hash by generating an array of random bits. There is definetly a better way of doing this.
+Every block has a payload and a nonce. The hash of the payload + nonce must have N zeros prepended where N is the current blockchain difficulty.
+There is a work function that goes through the whole blockchain block by block and searches for the nonce by generating an array of random bits.
 
 Sharing of blocks is done by keeping a list of peers with [memberlist](https://github.com/hashicorp/memberlist).
 Currently a simple broadcast is done to merge remote states on join.
