@@ -1,4 +1,4 @@
-# Blockchain
+# Blockchain 🧱⛓
 
 This is an implementation of a toy proof of work blockchain.
 
